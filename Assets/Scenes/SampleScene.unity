@@ -152,8 +152,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShipChaseCamera
   ship: {fileID: 1792450288}
   slider: {fileID: 127732010}
-  heightAbove: 80
-  distanceBehind: 250
+  heightAbove: 50
+  distanceBehind: 350
   followSmooth: 5
   lookSmooth: 8
 --- !u!81 &4999045
@@ -2602,11 +2602,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShipCameraFollow
   ship: {fileID: 1792450288}
   slider: {fileID: 127732010}
-  distance: 160
+  distanceBehind: 160
   heightAbove: 30
   followSmooth: 5
   lookSmooth: 8
-  tiltAmount: 2
 --- !u!1 &1079869480
 GameObject:
   m_ObjectHideFlags: 0
@@ -4342,7 +4341,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShipFrontCamera
   ship: {fileID: 1792450288}
   slider: {fileID: 127732010}
-  heightAbove: 80
+  heightAbove: 50
   distanceBehind: 250
   followSmooth: 5
   lookSmooth: 8
@@ -5029,6 +5028,7 @@ MonoBehaviour:
   csvFileName: 
   playbackSpeed: 1
   loop: 1
+  yamlFileName: 
   positionScale: 1
   positionOffset: {x: 0, y: 0, z: 0}
   rotationOffset: {x: 0, y: 0, z: 0}

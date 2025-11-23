@@ -22,6 +22,31 @@ public class MainHUD : MonoBehaviour
     private bool isVisible = true;
     private bool togglePressed = false;
 
+    string FormatForce(float value)
+    {
+        float abs = Mathf.Abs(value);
+
+        if (abs < 1e3f)         return $"{value:F0} N";       // 160 N
+        if (abs < 1e6f)         return $"{value / 1e3f:F1} kN"; // 12.5 kN
+        if (abs < 1e9f)         return $"{value / 1e6f:F2} MN";
+        if (abs < 1e12f)        return $"{value / 1e9f:F2} GN";
+
+        return $"{value / 1e12f:F2} TN";
+    }
+
+    string FormatMoment(float value)
+    {
+        float abs = Mathf.Abs(value);
+
+        if (abs < 1e3f)         return $"{value:F0} Nm";          // Newton·m
+        if (abs < 1e6f)         return $"{value / 1e3f:F1} kNm"; // kilo Newton·m
+        if (abs < 1e9f)         return $"{value / 1e6f:F2} MNm"; // méga Newton·m
+        if (abs < 1e12f)        return $"{value / 1e9f:F2} GNm"; // giga Newton·m
+
+        return $"{value / 1e12f:F2} TNm";                        // téra Newton·m (rare)
+    }
+
+
     void Update()
     {
         HandleHUDToggle();
@@ -87,9 +112,10 @@ public class MainHUD : MonoBehaviour
             $"<b>Rotation (multipliées par 1000) :</b>\n" +
             $"Phi (roll) = {phiDisplay:F2}°   Theta (pitch) = {thetaDisplay:F2}°   Psi (yaw) = {psiDisplay:F2}°\n\n" +
             $"<b>Forces totales [N]</b>\n" +
-            $"Fx = {f.totalFx:F1}   Fy = {f.totalFy:F1}   Fz = {f.totalFz:F1}\n\n" +
+            $"Fx = {FormatForce(f.totalFx)}   Fy = {FormatForce(f.totalFy)}   Fz = {FormatForce(f.totalFz)}\n\n" +
             $"<b>Moments totaux [N·m]</b>\n" +
-            $"Mx = {f.totalMx:F1}   My = {f.totalMy:F1}   Mz = {f.totalMz:F1}";
+            $"Mx = {FormatMoment(f.totalMx)}   My = {FormatMoment(f.totalMy)}   Mz = {FormatMoment(f.totalMz)}";
+
     }
 
     // =========================================================

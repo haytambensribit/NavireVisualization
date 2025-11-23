@@ -359,7 +359,7 @@ public class MomentVisualizer : MonoBehaviour
             float t = float.Parse(p[h["t"]], CultureInfo.InvariantCulture);
             float mx = float.Parse(p[h["mx(sum of forces ship ship)"]], CultureInfo.InvariantCulture);
             float my = float.Parse(p[h["my(sum of forces ship ship)"]], CultureInfo.InvariantCulture);
-            float mz = float.Parse(p[h["mz(sum of forces ship ship)"]], CultureInfo.InvariantCulture);
+            float mz = -float.Parse(p[h["mz(sum of forces ship ship)"]], CultureInfo.InvariantCulture);
 
             frames.Add(new MomentFrame
             {
