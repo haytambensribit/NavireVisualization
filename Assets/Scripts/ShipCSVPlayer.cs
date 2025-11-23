@@ -13,6 +13,12 @@ public class ShipCSVPlayer : MonoBehaviour
     public float playbackSpeed = 1.0f;
     public bool loop = true;
 
+    [Header("YAML Settings")]
+    public string yamlFileName = "";
+
+    public Vector3 propellerPosition_ship { get; private set; } = Vector3.zero;
+
+
     [Header("Ship Transform Settings")]
     public float positionScale = 1.0f;
     public Vector3 positionOffset = Vector3.zero;
@@ -77,11 +83,63 @@ public class ShipCSVPlayer : MonoBehaviour
             return;
         }
 #endif
+#if UNITY_EDITOR
+    if (string.IsNullOrWhiteSpace(yamlFileName))
+    {
+        yamlFileName = EditorUtility.OpenFilePanel("Sélectionner un fichier YAML", Application.streamingAssetsPath, "yml");
 
+        if (string.IsNullOrEmpty(yamlFileName))
+        {
+            Debug.LogError("❌ Aucun fichier YAML sélectionné.");
+            return;
+        }
+    }
+#endif
+        LoadYAML();
         LoadCSV();
     }
 
     // ======================================================
+    void LoadYAML()
+    {
+        if (string.IsNullOrWhiteSpace(yamlFileName)) return;
+
+        string full = yamlFileName;
+        if (!Path.IsPathRooted(full))
+            full = Path.Combine(Application.streamingAssetsPath, full);
+        full = Path.GetFullPath(full);
+
+        if (!File.Exists(full))
+        {
+            Debug.LogError("❌ YAML introuvable : " + full);
+            return;
+        }
+
+        string txt = File.ReadAllText(full);
+
+        propellerPosition_ship = new Vector3(
+        ExtractYamlFloat(txt, "position of propeller frame", "x"),
+        -ExtractYamlFloat(txt, "position of propeller frame", "z"),   // ← devient Y Unity
+        ExtractYamlFloat(txt, "position of propeller frame", "y")    // ← devient Z Unity
+    );
+
+        Debug.Log($"📌 Propeller position (ship frame) = {propellerPosition_ship}");
+    }
+
+    float ExtractYamlFloat(string yaml, string section, string key)
+    {
+        string pattern =
+            section + @"[\s\S]*?" +
+            key + @"\:\s*\{value:\s*([-0-9\.eE]+)";
+
+        var match = System.Text.RegularExpressions.Regex.Match(yaml, pattern);
+        if (!match.Success) return 0f;
+
+        return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
+
+
     void Update()
     {
         if (!isPlaying || data.Count < 2) 
@@ -236,7 +294,7 @@ public class ShipCSVPlayer : MonoBehaviour
                 float psiRaw = TryParse(h, p, "psi(ship)");
 
                 // 🔥 psi est en radians cumulatifs → on normalise en degrés
-                float psi = Mathf.Repeat(psiRaw * Mathf.Rad2Deg, 360f); // si radians
+                float psi = psiRaw * Mathf.Rad2Deg;
                 
 
                 f.rotation = new Vector3(phi, psi, theta);

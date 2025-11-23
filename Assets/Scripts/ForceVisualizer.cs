@@ -30,7 +30,7 @@ public class ForceVisualizer : MonoBehaviour
     [Header("Scaling manuel")]
     public float Scaling = 10f;
 
-    
+    private Arrow3D arrowProp;
     
     private class Arrow3D
     {
@@ -123,6 +123,7 @@ public class ForceVisualizer : MonoBehaviour
         arrowFx = new Arrow3D("Arrow_Fx", new Color(1f, 0.3f, 0f), transform, shaftRadius, shaftRadius * headRadiusFactor); // orange (Fx)
         arrowFy = new Arrow3D("Arrow_Fy", Color.green, transform, shaftRadius, shaftRadius * headRadiusFactor);            // vert (Fy)
         arrowFz = new Arrow3D("Arrow_Fz", Color.magenta, transform, shaftRadius, shaftRadius * headRadiusFactor);          // magenta (Fz)
+        arrowProp = new Arrow3D("Arrow_Propeller", Color.cyan, transform, shaftRadius, shaftRadius * headRadiusFactor);
         Invoke(nameof(LoadCSV), 0.2f);
 
     }
@@ -142,8 +143,21 @@ public class ForceVisualizer : MonoBehaviour
         float FyNorm = (Mathf.Abs(Fref.y) > 1e-6f) ? f.z / Fref.y * Scaling : f.z;
         float FzNorm = (Mathf.Abs(Fref.z) > 1e-6f) ? f.w / Fref.z * Scaling : f.w;
 
+        Vector3 propWorld = shipTransform.TransformPoint(player.propellerPosition_ship);
+
+
         // Calcul du vecteur force
         Vector3 targetForce = new Vector3(FxNorm, FyNorm, FzNorm);
+        
+        float FxPropNorm = (Mathf.Abs(Fref.x) > 1e-6f) ? player.CurrentFrame.fx_prop / Fref.x * Scaling : player.CurrentFrame.fx_prop;
+        float FyPropNorm = (Mathf.Abs(Fref.y) > 1e-6f) ? player.CurrentFrame.fy_prop / Fref.y * Scaling : player.CurrentFrame.fy_prop;
+        float FzPropNorm = (Mathf.Abs(Fref.z) > 1e-6f) ? player.CurrentFrame.fz_prop / Fref.z * Scaling : player.CurrentFrame.fz_prop;
+
+
+        Vector3 Fprop = 
+            -shipTransform.right * FxPropNorm * globalScale
+            +  shipTransform.forward * FyPropNorm * globalScale
+            + -shipTransform.up * FzPropNorm * globalScale;
 
         // Lissage visuel
         float k = Mathf.Lerp(1f, 0.02f, smoothFactor);
@@ -154,14 +168,16 @@ public class ForceVisualizer : MonoBehaviour
         float FzS = smoothedForce.z;
 
         Vector3 origin = shipTransform.position;
-        Vector3 Fx = shipTransform.forward * FxS * globalScale;
-        Vector3 Fy = shipTransform.right * FyS * globalScale;
+        Vector3 Fx = - shipTransform.right * FxS * globalScale;
+        Vector3 Fy = shipTransform.forward * FyS * globalScale;  
         Vector3 Fz = -shipTransform.up * FzS * globalScale;
 
 
         arrowFx.Set(origin, Fx, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
         arrowFy.Set(origin, Fy, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
         arrowFz.Set(origin, Fz, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
+        arrowProp.Set(propWorld, Fprop, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
+
     }
     
 

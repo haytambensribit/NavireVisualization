@@ -17,7 +17,11 @@ public class ShipChaseCamera : MonoBehaviour
     public float lookSmooth = 10f;
 
     private Vector3 velocity = Vector3.zero;
-
+    float ContinuousYaw(float yaw)
+    {
+        // garde un yaw continu sans saut
+        return Mathf.Repeat(yaw + 360f, 360f);
+    }
     void LateUpdate()
     {
         if (ship == null)
@@ -33,7 +37,15 @@ public class ShipChaseCamera : MonoBehaviour
             + Vector3.up * heightAbove;
 
         Vector3 lookTarget = ship.position;
-        Quaternion targetRot = Quaternion.LookRotation(lookTarget - targetPosition, Vector3.up);
+        Vector3 dir = lookTarget - targetPosition;
+
+        // empêcher les sauts de 360° sur yaw
+        float yaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+        yaw = ContinuousYaw(yaw);
+
+        // reconstruire la rotation stable
+        Quaternion targetRot = Quaternion.Euler(0f, yaw, 0f);
+
 
         bool instant = (slider != null && slider.IsDragging);
 

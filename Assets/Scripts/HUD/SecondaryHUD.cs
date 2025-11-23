@@ -1,20 +1,34 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.InputSystem; // ✅ pour la compatibilité clavier moderne
+using UnityEngine.InputSystem; // pour clavier moderne
 
 public class SecondaryHUD : MonoBehaviour
 {
     [Header("Références")]
     public ShipCSVPlayer shipData;
     public TMP_Text hudText;
-    public CanvasGroup hudGroup; // ✅ le Panel parent
+    public CanvasGroup hudGroup;
 
     [Header("Options")]
-    [Tooltip("Permet de masquer/afficher le HUD secondaire avec Ctrl+J")]
     public bool enableToggle = true;
 
     private bool isVisible = true;
     private bool togglePressed = false;
+
+    // =========================================================
+    // 🔹 Formatage intelligent des forces
+    // =========================================================
+    string FormatForce(float value)
+    {
+        float abs = Mathf.Abs(value);
+
+        if (abs < 1e3f)         return $"{value:F0} N";        // Newton
+        if (abs < 1e6f)         return $"{value / 1e3f:F1} kN";  // kilo Newton
+        if (abs < 1e9f)         return $"{value / 1e6f:F2} MN";  // méga Newton
+        if (abs < 1e12f)        return $"{value / 1e9f:F2} GN";  // giga Newton
+
+        return $"{value / 1e12f:F2} TN";                          // téra Newton
+    }
 
     void Update()
     {
@@ -38,14 +52,14 @@ public class SecondaryHUD : MonoBehaviour
         var f = shipData.CurrentFrame;
 
         hudText.text =
-            $"<b><color=#000000>Forces détaillées [N]</color></b>\n" +
-            $"<b>Gravité :</b> Fx={f.fx_grav:F1}   Fy={f.fy_grav:F1}   Fz={f.fz_grav:F1}\n" +
-            $"<b>Hydrostatique :</b> Fx={f.fx_hydro:F1}   Fy={f.fy_hydro:F1}   Fz={f.fz_hydro:F1}\n" +
-            $"<b>Froude-Krylov :</b> Fx={f.fx_froude:F1}   Fy={f.fy_froude:F1}   Fz={f.fz_froude:F1}\n" +
-            $"<b>Diffraction :</b> Fx={f.fx_diff:F1}   Fy={f.fy_diff:F1}   Fz={f.fz_diff:F1}\n" +
-            $"<b>Radiation :</b> Fx={f.fx_rad:F1}   Fy={f.fy_rad:F1}   Fz={f.fz_rad:F1}\n" +
-            $"<b>Holtrop-Mennen :</b> Fx={f.fx_hm:F1}   Fy={f.fy_hm:F1}   Fz={f.fz_hm:F1}\n" +
-            $"<b>Propulseur & Gouvernail :</b> Fx={f.fx_prop:F1}   Fy={f.fy_prop:F1}   Fz={f.fz_prop:F1}";
+            $"<b><color=#000000>Forces détaillées</color></b>\n" +
+            $"<b>Gravité :</b> Fx={FormatForce(f.fx_grav)}   Fy={FormatForce(f.fy_grav)}   Fz={FormatForce(f.fz_grav)}\n" +
+            $"<b>Hydrostatique :</b> Fx={FormatForce(f.fx_hydro)}   Fy={FormatForce(f.fy_hydro)}   Fz={FormatForce(f.fz_hydro)}\n" +
+            $"<b>Froude-Krylov :</b> Fx={FormatForce(f.fx_froude)}   Fy={FormatForce(f.fy_froude)}   Fz={FormatForce(f.fz_froude)}\n" +
+            $"<b>Diffraction :</b> Fx={FormatForce(f.fx_diff)}   Fy={FormatForce(f.fy_diff)}   Fz={FormatForce(f.fz_diff)}\n" +
+            $"<b>Radiation :</b> Fx={FormatForce(f.fx_rad)}   Fy={FormatForce(f.fy_rad)}   Fz={FormatForce(f.fz_rad)}\n" +
+            $"<b>Holtrop-Mennen :</b> Fx={FormatForce(f.fx_hm)}   Fy={FormatForce(f.fy_hm)}   Fz={FormatForce(f.fz_hm)}\n" +
+            $"<b>Propulseur & Gouvernail :</b> Fx={FormatForce(f.fx_prop)}   Fy={FormatForce(f.fy_prop)}   Fz={FormatForce(f.fz_prop)}";
     }
 
     // =========================================================
