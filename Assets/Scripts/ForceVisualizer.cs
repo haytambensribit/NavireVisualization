@@ -155,10 +155,9 @@ public class ForceVisualizer : MonoBehaviour
 
 
         Vector3 Fprop = 
-            -shipTransform.right * FxPropNorm * globalScale
-            +  shipTransform.forward * FyPropNorm * globalScale
-            + -shipTransform.up * FzPropNorm * globalScale;
-
+             shipTransform.right * FxPropNorm * globalScale       
+            - shipTransform.forward   * FyPropNorm * globalScale       
+            - shipTransform.up       * FzPropNorm * globalScale;    
         // Lissage visuel
         float k = Mathf.Lerp(1f, 0.02f, smoothFactor);
         smoothedForce = Vector3.Lerp(smoothedForce, targetForce, k);

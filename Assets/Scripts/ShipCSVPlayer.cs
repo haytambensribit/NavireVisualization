@@ -23,6 +23,13 @@ public class ShipCSVPlayer : MonoBehaviour
     public float positionScale = 1.0f;
     public Vector3 positionOffset = Vector3.zero;
     public Vector3 rotationOffset = Vector3.zero;
+    
+    private Vector3 initialPos_NED;
+    private Vector3 initialRot_ship_NED;
+
+    private Quaternion shipFrameInitialRotationUnity;
+    private Vector3 shipFrameInitialPositionUnity;
+
 
     // ======================================================
     // 🧩 Structure publique pour les HUD
@@ -121,7 +128,28 @@ public class ShipCSVPlayer : MonoBehaviour
         ExtractYamlFloat(txt, "position of propeller frame", "x"),
         -ExtractYamlFloat(txt, "position of propeller frame", "z"),   // ← devient Y Unity
         ExtractYamlFloat(txt, "position of propeller frame", "y")    // ← devient Z Unity
-    );
+        );
+
+        initialPos_NED = new Vector3(
+            ExtractYamlFloat(txt, "initial position of body frame", "x"),
+            ExtractYamlFloat(txt, "initial position of body frame", "y"),
+            ExtractYamlFloat(txt, "initial position of body frame", "z")
+        );
+
+        initialRot_ship_NED = new Vector3(
+            ExtractYamlFloat(txt, "initial position of body frame", "phi"),
+            ExtractYamlFloat(txt, "initial position of body frame", "theta"),
+            ExtractYamlFloat(txt, "initial position of body frame", "psi")
+        );
+
+        shipFrameInitialPositionUnity = new Vector3(
+            initialPos_NED.y,
+            -initialPos_NED.z,
+            initialPos_NED.x
+        );
+
+        shipFrameInitialRotationUnity = ConvertNEDToUnityRot(initialRot_ship_NED);
+
 
         Debug.Log($"📌 Propeller position (ship frame) = {propellerPosition_ship}");
     }
@@ -138,6 +166,22 @@ public class ShipCSVPlayer : MonoBehaviour
         return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
     }
 
+    Quaternion ConvertNEDToUnityRot(Vector3 rNED)
+    {
+        float phi = rNED.x * Mathf.Rad2Deg;    // roll
+        float theta = rNED.y * Mathf.Rad2Deg;  // pitch
+        float psi = rNED.z * Mathf.Rad2Deg;    // yaw
+
+        Quaternion q = Quaternion.Euler(phi, psi, theta);
+
+        // Conversion NED->Unity (Xned,Yned,Zned->Z,X,-Y)
+        return new Quaternion(
+            q.y,
+            -q.z,
+            q.x,
+            q.w
+        );
+    }
 
 
     void Update()
@@ -165,6 +209,10 @@ public class ShipCSVPlayer : MonoBehaviour
                 return;
             }
         }
+        
+
+
+
 
         var a = data[currentIndex];
         var b = data[currentIndex + 1];
@@ -173,8 +221,15 @@ public class ShipCSVPlayer : MonoBehaviour
         PreviousFrame = CurrentFrame;
         CurrentFrame = LerpFrame(a, b, t);
 
-        transform.position = positionOffset + CurrentFrame.position * positionScale;
-        transform.rotation = Quaternion.Euler(CurrentFrame.rotation + rotationOffset);
+
+        Vector3 csvPos = CurrentFrame.position;
+        Quaternion csvRot = Quaternion.Euler(CurrentFrame.rotation);
+
+        Vector3 posUnity = shipFrameInitialPositionUnity + shipFrameInitialRotationUnity * csvPos;
+        Quaternion rotUnity = shipFrameInitialRotationUnity * csvRot;
+
+        transform.position = positionOffset + posUnity * positionScale;
+        transform.rotation = rotUnity;
     }
 
     // ======================================================
@@ -338,9 +393,9 @@ public class ShipCSVPlayer : MonoBehaviour
                 f.fy_hm = TryParse(h, p, "fy(holtrop & mennen ship ship)");
                 f.fz_hm = TryParse(h, p, "fz(holtrop & mennen ship ship)");
 
-                f.fx_prop = TryParse(h, p, "fx(propellerandrudder ship ship)");
-                f.fy_prop = TryParse(h, p, "fy(propellerandrudder ship ship)");
-                f.fz_prop = TryParse(h, p, "fz(propellerandrudder ship ship)");
+                f.fx_prop = TryParse(h, p, "fx(propellerandrudder ship propellerandrudder)");
+                f.fy_prop = TryParse(h, p, "fy(propellerandrudder ship propellerandrudder)");
+                f.fz_prop = TryParse(h, p, "fz(propellerandrudder ship propellerandrudder)");
             }
             catch
             {

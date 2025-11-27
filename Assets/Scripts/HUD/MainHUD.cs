@@ -109,10 +109,12 @@ public class MainHUD : MonoBehaviour
             $"<b>Vitesse :</b> {smoothedSpeed:F2} m/s   ({speedKmh:F1} km/h  |  {speedKnots:F1} kn)\n\n" +
             $"<b>Position :</b>\n" +
             $"X = {f.position.x:F2}   Y = {f.position.z:F2}   Z = {f.position.y:F2}\n\n" +
-            $"<b>Rotation (multipliées par 1000) :</b>\n" +
+            $"<b>Rotation :</b>\n" +
             $"Phi (roll) = {phiDisplay:F2}°   Theta (pitch) = {thetaDisplay:F2}°   Psi (yaw) = {psiDisplay:F2}°\n\n" +
             $"<b>Forces totales [N]</b>\n" +
             $"Fx = {FormatForce(f.totalFx)}   Fy = {FormatForce(f.totalFy)}   Fz = {FormatForce(f.totalFz)}\n\n" +
+            $"<b>Forces propulsives [N]</b>\n" +
+            $"Fx_prop = {FormatForce(f.fx_prop)}   Fy_prop = {FormatForce(f.fy_prop)}   Fz_prop = {FormatForce(f.fz_prop)}\n\n" +
             $"<b>Moments totaux [N·m]</b>\n" +
             $"Mx = {FormatMoment(f.totalMx)}   My = {FormatMoment(f.totalMy)}   Mz = {FormatMoment(f.totalMz)}";
 
