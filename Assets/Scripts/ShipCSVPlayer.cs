@@ -64,47 +64,30 @@ public class ShipCSVPlayer : MonoBehaviour
     private int currentIndex = 0;
     private float elapsedTime = 0f;
     private bool isPlaying = true;
+    public bool IsPlaying => isPlaying;
 
     public string LoadedCSVPath { get; private set; }
 
     // ======================================================
     void Start()
     {
-#if UNITY_EDITOR
-        if (string.IsNullOrWhiteSpace(csvFileName))
+        if (string.IsNullOrEmpty(SimulationPaths.SelectedCSV) ||
+            string.IsNullOrEmpty(SimulationPaths.SelectedYAML))
         {
-            csvFileName = EditorUtility.OpenFilePanel("Sélectionner un fichier CSV", Application.streamingAssetsPath, "csv");
-
-            if (string.IsNullOrEmpty(csvFileName))
-            {
-                Debug.LogError("❌ Aucun fichier CSV sélectionné.");
-                isPlaying = false;
-                return;
-            }
-        }
-#else
-        if (string.IsNullOrWhiteSpace(csvFileName))
-        {
-            Debug.LogError("❌ Aucun fichier CSV défini.");
+            Debug.LogError("❌ Aucun chemin transmis depuis le menu de démarrage.");
             isPlaying = false;
             return;
         }
-#endif
-#if UNITY_EDITOR
-    if (string.IsNullOrWhiteSpace(yamlFileName))
-    {
-        yamlFileName = EditorUtility.OpenFilePanel("Sélectionner un fichier YAML", Application.streamingAssetsPath, "yml");
 
-        if (string.IsNullOrEmpty(yamlFileName))
-        {
-            Debug.LogError("❌ Aucun fichier YAML sélectionné.");
-            return;
-        }
-    }
-#endif
+        csvFileName = SimulationPaths.SelectedCSV;
+        yamlFileName = SimulationPaths.SelectedYAML;
+
         LoadYAML();
         LoadCSV();
+        Debug.Log($"📂 CSV chargé depuis le menu : {csvFileName}");
+        Debug.Log($"📂 YAML chargé depuis le menu : {yamlFileName}");
     }
+
 
     // ======================================================
     void LoadYAML()
@@ -183,9 +166,73 @@ public class ShipCSVPlayer : MonoBehaviour
         );
     }
 
+    // ========== PLAY / PAUSE / RESTART API ==========
+
+    public void Pause()
+    {
+        isPlaying = false;
+        Time.timeScale = 0f;   // ← fige toute la scène
+    }
+
+    public void Play()
+    {
+        if (data.Count < 2) return;
+
+        float lastTime = data[^1].time;
+
+        if (elapsedTime >= lastTime - 0.01f)
+            Restart();
+        else
+            isPlaying = true;
+
+        Time.timeScale = 1f;  // ← relance la scène
+    }
+
+    public void TogglePlayPause()
+    {
+        if (isPlaying)
+            Pause();
+        else
+            Play();
+    }
+
+    public void Restart()
+    {
+        elapsedTime = 0f;
+        currentIndex = 0;
+
+        if (data.Count > 0)
+        {
+            CurrentFrame = data[0];
+            PreviousFrame = CurrentFrame;
+        }
+
+        isPlaying = true;
+        playbackSpeed = 1f;
+
+        Vector3 csvPos = CurrentFrame.position;
+        Quaternion csvRot = Quaternion.Euler(CurrentFrame.rotation);
+
+        Vector3 posUnity = shipFrameInitialPositionUnity + shipFrameInitialRotationUnity * csvPos;
+        Quaternion rotUnity = shipFrameInitialRotationUnity * csvRot;
+
+        transform.position = positionOffset + posUnity * positionScale;
+        transform.rotation = rotUnity;
+    }
+
+
+
+
 
     void Update()
     {
+       // ✅ Le clavier est géré ICI (toujours au même endroit)
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            TogglePlayPause();
+        }
+
+            
         if (!isPlaying || data.Count < 2) 
             return;
 
@@ -203,10 +250,10 @@ public class ShipCSVPlayer : MonoBehaviour
             }
             else
             {
+                // On reste à la fin, mais on ne bloque plus le Play()
                 isPlaying = false;
-                CurrentFrame = data[^1];
-                PreviousFrame = CurrentFrame;
                 return;
+
             }
         }
         

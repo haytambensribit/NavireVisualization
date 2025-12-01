@@ -132,6 +132,7 @@ public class ForceVisualizer : MonoBehaviour
     {
         HandleVisibilityToggle();
         if (!visible || data.Count == 0 || shipTransform == null || player == null) return;
+        if (player.CurrentFrame == null) return;
 
 
 
