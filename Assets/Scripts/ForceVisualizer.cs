@@ -3,28 +3,57 @@ using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
 
+/// <summary>
+/// Gère la visualisation 3D des forces linéaires agissant sur le navire.
+/// Crée des flèches dynamiques dont la taille et la direction correspondent aux forces lues.
+/// </summary>
 public class ForceVisualizer : MonoBehaviour
 {
-    [Header("CSV Settings")]
-    [Tooltip("Nom du fichier CSV contenant les forces (doit être dans StreamingAssets)")]
-        public float playbackSpeed = 1f;
+    [Header("Paramètres CSV")]
+    /// <summary>
+    /// Vitesse de lecture (doit correspondre au ShipCSVPlayer).
+    /// </summary>
+    public float playbackSpeed = 1f;
+
+    /// <summary>
+    /// Référence au Transform du navire.
+    /// </summary>
     public Transform shipTransform;
+
+    /// <summary>
+    /// Référence au lecteur CSV principal.
+    /// </summary>
     public ShipCSVPlayer player;
     
-    [Header("Force Scaling (automatique par axe)")]
+    [Header("Mise à l'échelle des Forces (Auto)")]
+    /// <summary>
+    /// Valeurs de référence par axe pour normaliser les forces (max absolu).
+    /// Si (0,0,0), sera calculé automatiquement au chargement.
+    /// </summary>
     [Tooltip("Valeurs de référence par axe (max absolu dans le CSV)")]
     public Vector3 Fref = Vector3.one;
-    [Tooltip("Facteur d’échelle global appliqué après normalisation")]
+
+    /// <summary>
+    /// Facteur d'échelle global appliqué à toutes les flèches après normalisation.
+    /// </summary>
+    [Tooltip("Facteur d'échelle global appliqué après normalisation")]
     public float globalScale = 1f;
 
     [Header("Fluidité")]
+    /// <summary>
+    /// Facteur de lissage pour l'animation des flèches (0 = pas de lissage, 1 = très lent).
+    /// </summary>
     [Range(0f, 1f)] public float smoothFactor = 1f;
     private Vector3 smoothedForce = Vector3.zero;
 
-    [Header("Flèche Settings")]
+    [Header("Paramètres des Flèches")]
     public float shaftRadius = 0.3f;
     public float fixedHeadLength = 1.5f;
     public float headRadiusFactor = 1.0f;
+
+    /// <summary>
+    /// Seuil minimal de force en dessous duquel la flèche est masquée.
+    /// </summary>
     public float forceThreshold = 0.05f;
 
     [Header("Scaling manuel")]
@@ -32,6 +61,9 @@ public class ForceVisualizer : MonoBehaviour
 
     private Arrow3D arrowProp;
     
+    /// <summary>
+    /// Classe interne représentant une flèche 3D composée d'un cylindre (corps) et d'un cône (tête).
+    /// </summary>
     private class Arrow3D
     {
         public GameObject root, shaft, head;
@@ -63,6 +95,7 @@ public class ForceVisualizer : MonoBehaviour
             mr.material = mat;
         }
 
+        // Génère un mesh procédural de cône
         static Mesh ConeMesh(int seg)
         {
             Mesh m = new Mesh();
@@ -88,6 +121,9 @@ public class ForceVisualizer : MonoBehaviour
             return m;
         }
 
+        /// <summary>
+        /// Met à jour la position, rotation et échelle de la flèche.
+        /// </summary>
         public void Set(Vector3 origin, Vector3 dir, float shaftR, float headLen, float headRadFactor, float threshold)
         {
             float L = dir.magnitude;
@@ -98,12 +134,12 @@ public class ForceVisualizer : MonoBehaviour
             root.transform.position = origin;
             root.transform.rotation = Quaternion.FromToRotation(Vector3.up, n);
 
-            // Ajustement des longueurs
+            // Ajustement des longueurs pour que la pointe reste fixe
             float shaftLen = Mathf.Max(L - headLen, 1e-3f);
             shaft.transform.localScale = new Vector3(shaftR * 2f, shaftLen * 0.5f, shaftR * 2f);
             shaft.transform.localPosition = new Vector3(0f, shaftLen * 0.5f, 0f);
 
-            // Cône collé au cylindre
+            // Cône collé au bout du cylindre
             head.transform.localScale = new Vector3(headRadFactor * shaftR * 2f, headLen, headRadFactor * shaftR * 2f);
             head.transform.localPosition = new Vector3(0f, shaftLen, 0f);
         }
@@ -120,20 +156,19 @@ public class ForceVisualizer : MonoBehaviour
 
     void Start()
     {
-        arrowFx = new Arrow3D("Arrow_Fx", new Color(1f, 0.3f, 0f), transform, shaftRadius, shaftRadius * headRadiusFactor); // orange (Fx)
-        arrowFy = new Arrow3D("Arrow_Fy", Color.green, transform, shaftRadius, shaftRadius * headRadiusFactor);            // vert (Fy)
-        arrowFz = new Arrow3D("Arrow_Fz", Color.magenta, transform, shaftRadius, shaftRadius * headRadiusFactor);          // magenta (Fz)
-        arrowProp = new Arrow3D("Arrow_Propeller", Color.cyan, transform, shaftRadius, shaftRadius * headRadiusFactor);
+        // Initialisation des flèches avec couleurs distinctes
+        arrowFx = new Arrow3D("Arrow_Fx", new Color(1f, 0.3f, 0f), transform, shaftRadius, shaftRadius * headRadiusFactor); // Orange (Fx)
+        arrowFy = new Arrow3D("Arrow_Fy", Color.green, transform, shaftRadius, shaftRadius * headRadiusFactor);            // Vert (Fy)
+        arrowFz = new Arrow3D("Arrow_Fz", Color.magenta, transform, shaftRadius, shaftRadius * headRadiusFactor);          // Magenta (Fz)
+        arrowProp = new Arrow3D("Arrow_Propeller", Color.cyan, transform, shaftRadius, shaftRadius * headRadiusFactor);    // Cyan (Hélice)
+        
         Invoke(nameof(LoadCSV), 0.2f);
-
     }
 
     void Update()
     {
         HandleVisibilityToggle();
         if (!visible || data.Count == 0 || shipTransform == null || player == null) return;
-
-
 
         int index = playerIndex();
         Vector4 f = data[index];
@@ -146,27 +181,31 @@ public class ForceVisualizer : MonoBehaviour
         Vector3 propWorld = shipTransform.TransformPoint(player.propellerPosition_ship);
 
 
-        // Calcul du vecteur force
+        // Calcul du vecteur force cible
         Vector3 targetForce = new Vector3(FxNorm, FyNorm, FzNorm);
         
+        // Calcul des forces d'hélice spécifiques
         float FxPropNorm = (Mathf.Abs(Fref.x) > 1e-6f) ? player.CurrentFrame.fx_prop / Fref.x * Scaling : player.CurrentFrame.fx_prop;
         float FyPropNorm = (Mathf.Abs(Fref.y) > 1e-6f) ? player.CurrentFrame.fy_prop / Fref.y * Scaling : player.CurrentFrame.fy_prop;
         float FzPropNorm = (Mathf.Abs(Fref.z) > 1e-6f) ? player.CurrentFrame.fz_prop / Fref.z * Scaling : player.CurrentFrame.fz_prop;
 
 
+        // Construction du vecteur force hélice dans le monde
         Vector3 Fprop = 
              shipTransform.right * FxPropNorm * globalScale       
             - shipTransform.forward   * FyPropNorm * globalScale       
             - shipTransform.up       * FzPropNorm * globalScale;    
-        // Lissage visuel
+        
+        // Lissage temporel pour éviter les saccades
         float k = Mathf.Lerp(1f, 0.02f, smoothFactor);
         smoothedForce = Vector3.Lerp(smoothedForce, targetForce, k);
-        // On utilise la force lissée
+        
         float FxS = smoothedForce.x;
         float FyS = smoothedForce.y;
         float FzS = smoothedForce.z;
 
         Vector3 origin = shipTransform.position;
+        // Conversion coordonnées simulation -> repère local flèches (adapté à l'orientation du navire)
         Vector3 Fx = - shipTransform.right * FxS * globalScale;
         Vector3 Fy = shipTransform.forward * FyS * globalScale;  
         Vector3 Fz = -shipTransform.up * FzS * globalScale;
@@ -176,10 +215,11 @@ public class ForceVisualizer : MonoBehaviour
         arrowFy.Set(origin, Fy, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
         arrowFz.Set(origin, Fz, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
         arrowProp.Set(propWorld, Fprop, shaftRadius, fixedHeadLength, headRadiusFactor, forceThreshold);
-
     }
     
-
+    /// <summary>
+    /// Trouve l'index de la trame de données correspondant au temps actuel du player.
+    /// </summary>
     int playerIndex()
     {
         float target = player.GetElapsedTime();
@@ -201,14 +241,9 @@ public class ForceVisualizer : MonoBehaviour
         return bestIndex;
     }
 
-
-    // fallback (aucun player connecté)
-    int defaultIndex()
-    {
-        return Mathf.FloorToInt(Time.time * playbackSpeed) % data.Count;
-    }
-
-
+    /// <summary>
+    /// Gère l'entrée utilisateur pour afficher/masquer les flèches (Touche F ou ,).
+    /// </summary>
     void HandleVisibilityToggle()
     {
         if (Input.GetKeyDown(KeyCode.F) || Input.GetKeyDown(KeyCode.Comma))
@@ -221,6 +256,9 @@ public class ForceVisualizer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Charge les données de forces à partir du CSV chargé par le ShipCSVPlayer.
+    /// </summary>
     void LoadCSV()
     {
         if (player == null)

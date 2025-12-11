@@ -3,22 +3,40 @@ using System.IO;
 using System.Globalization;
 using UnityEngine;
 using UnityEditor;
-using UnityEngine.InputSystem;   // ✅ Nouveau système d’input
+using UnityEngine.InputSystem; 
 
 [RequireComponent(typeof(Transform))]
+/// <summary>
+/// Gère la visualisation 3D des moments (couples) agissant sur le navire.
+/// Affiche des arcs toriques de couleur pour représenter les moments de roulis (Roll), lacet (Yaw) et tangage (Pitch).
+/// </summary>
 public class MomentVisualizer : MonoBehaviour
 {
-    [Header("CSV Settings")]
+    [Header("Paramètres CSV")]
     public float playbackSpeed = 1.0f;
     public bool loop = true;
+
+    /// <summary>
+    /// Référence au lecteur CSV principal pour la synchronisation.
+    /// </summary>
     public ShipCSVPlayer player;
 
 
     [Header("Références de moments (calculées automatiquement)")]
+    /// <summary>
+    /// Valeur maximale absolue de moment trouvée dans le CSV, utilisée pour la normalisation visuelle (Mref).
+    /// </summary>
     public Vector3 Mref = Vector3.one;
 
     [Header("Paramètres visuels")]
+    /// <summary>
+    /// Rayon de base des arcs de visualisation.
+    /// </summary>
     public float baseRadius = 7f;
+
+    /// <summary>
+    /// Facteur de lissage pour l'animation des arcs.
+    /// </summary>
     [Range(0f, 1f)] public float smoothFactor = 0.15f;
     public float tubeRadius = 0.25f;
     public int arcSegments = 60;
@@ -49,10 +67,11 @@ public class MomentVisualizer : MonoBehaviour
     private int visibilityState = 0; // 0 = tout, 1 = arcs, 2 = rien
 
     public TimeSliderController slider;
+    
     // =========================================================
     void Awake()
     {
-        // === Arcs toriques et flèches ===
+        // === Initialisation des arcs toriques et des flèches ===
         for (int i = 0; i < 3; i++)
         {
             GameObject arc = new GameObject("Arc3D_" + axisNames[i]);
@@ -72,6 +91,7 @@ public class MomentVisualizer : MonoBehaviour
 
             mf.mesh = CreateArcTubeMesh(baseRadius, tubeRadius, 180f, arcSegments, tubeSegments);
 
+            // Orientation spécifique pour chaque axe
             switch (i)
             {
                 case 0: arc.transform.localRotation = Quaternion.Euler(0, 90, 90); break;
@@ -91,7 +111,7 @@ public class MomentVisualizer : MonoBehaviour
             arrowHeads[i] = head;
         }
 
-        // === Disques de référence ===
+        // === Initialisation des disques de référence (cercles grisés) ===
         for (int i = 0; i < 3; i++)
         {
             GameObject ring = new GameObject("ReferenceRing_" + axisNames[i]);
@@ -133,7 +153,7 @@ public class MomentVisualizer : MonoBehaviour
 
         if (frames.Count < 2) return;
 
-        // ⛔ Mode lecture via ShipCSVPlayer (slider actif)
+        // Mode synchronisé avec le ShipCSVPlayer
         if (player != null)
         {
             if (!player.HasValidFrame) return;
@@ -143,7 +163,7 @@ public class MomentVisualizer : MonoBehaviour
             return;
         }
 
-        // 🎞 Lecture automatique normale
+        // Mode lecture autonome (fallback)
         elapsed += Time.deltaTime * playbackSpeed;
 
         while (currentIndex < frames.Count - 2 && elapsed > frames[currentIndex + 1].t)
@@ -167,24 +187,23 @@ public class MomentVisualizer : MonoBehaviour
         var b = frames[currentIndex + 1];
         float t = Mathf.InverseLerp(a.t, b.t, elapsed);
 
-        // 🟢 Moments interpolés
+        // Interpolation des moments
         Vector3 moments = Vector3.Lerp(a.m, b.m, t);
 
-        // 🌊 Smoothing fluide
+        // Lissage visuel
         float k = Mathf.Lerp(1f, 0.02f, smoothFactor);
         smoothedMoments = Vector3.Lerp(smoothedMoments, moments, k);
         currentMoments = smoothedMoments;
 
-        // 🔁 Mise à jour visuelle
+        // Mise à jour de la géométrie des arcs
         UpdateArc(0, smoothedMoments.x, rollColor);
         UpdateArc(1, smoothedMoments.y, pitchColor);
         UpdateArc(2, smoothedMoments.z, yawColor);
     }
-
-
-
-
-
+    
+    /// <summary>
+    /// Met à jour les moments affichés en fonction d'un temps cible donné.
+    /// </summary>
     void UpdateMomentsFromTime(float targetTime)
     {
         // Trouver la frame la plus proche
@@ -204,7 +223,7 @@ public class MomentVisualizer : MonoBehaviour
         // Moments correspondants
         Vector3 rawMoment = frames[bestIndex].m;
 
-        // Lissage (comme avant)
+        // Lissage
         float k = Mathf.Lerp(1f, 0.02f, smoothFactor);
         smoothedMoments = Vector3.Lerp(smoothedMoments, rawMoment, k);
         currentMoments = smoothedMoments;
@@ -215,12 +234,13 @@ public class MomentVisualizer : MonoBehaviour
         UpdateArc(2, smoothedMoments.z, yawColor);
     }
 
-
-
     // =========================================================
+    /// <summary>
+    /// Gère l'affichage cyclique des visualisations (Tout -> Arcs seuls -> Rien).
+    /// </summary>
     void HandleVisibilityToggle()
     {
-        // 🔹 Lecture du caractère réel (ancien système, respecte AZERTY)
+        // Support Input System nouvelle génération et Input Manager classique
         if (!string.IsNullOrEmpty(Input.inputString))
         {
             if (Input.inputString.ToLower().Contains("m"))
@@ -230,7 +250,6 @@ public class MomentVisualizer : MonoBehaviour
             }
         }
 
-        // 🔹 Fallback (nouveau système) — si le projet est configuré en "Both"
         if (Keyboard.current != null)
         {
             if ((Keyboard.current.mKey != null && Keyboard.current.mKey.wasPressedThisFrame) ||
@@ -242,7 +261,6 @@ public class MomentVisualizer : MonoBehaviour
         }
     }
 
-    // Sépare la logique pour plus de clarté
     void CycleVisibility()
     {
         visibilityState = (visibilityState + 1) % 3;
@@ -267,6 +285,9 @@ public class MomentVisualizer : MonoBehaviour
 
 
     // =========================================================
+    /// <summary>
+    /// Met à jour la géométrie d'un arc spécifique (longueur et orientation) selon la valeur du moment.
+    /// </summary>
     private void UpdateArc(int index, float value, Color color)
     {
         GameObject arc = arcMeshes[index];
@@ -303,6 +324,9 @@ public class MomentVisualizer : MonoBehaviour
     }
 
     // =========================================================
+    /// <summary>
+    /// Charge les données CSV via le ShipCSVPlayer et extrait les moments.
+    /// </summary>
     void LoadCSV()
     {
         if (player == null)
@@ -474,7 +498,7 @@ public class MomentVisualizer : MonoBehaviour
 
             for (int j = 0; j <= tubeSeg; j++)
             {
-                // ✅ la variable manquante :
+                
                 float tt = j * tubeStep;
 
                 Vector3 normal = new Vector3(

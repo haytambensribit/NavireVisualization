@@ -6,33 +6,66 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
+/// <summary>
+/// Gère la lecture des données de simulation CSV et déplace le navire en conséquence.
+/// Lit également la configuration initiale à partir d'un fichier YAML.
+/// </summary>
 public class ShipCSVPlayer : MonoBehaviour
 {
-    [Header("CSV Settings")]
+    [Header("Paramètres CSV")]
+    /// <summary>
+    /// Nom du fichier CSV situé dans le dossier StreamingAssets.
+    /// </summary>
     public string csvFileName = "";
+
+    /// <summary>
+    /// Vitesse de lecture de la simulation (1.0 = temps réel).
+    /// </summary>
     public float playbackSpeed = 1.0f;
+
+    /// <summary>
+    /// Si vrai, la simulation boucle indéfiniment.
+    /// </summary>
     public bool loop = true;
 
-    [Header("YAML Settings")]
+    [Header("Paramètres YAML")]
+    /// <summary>
+    /// Nom du fichier YAML de configuration situé dans StreamingAssets.
+    /// </summary>
     public string yamlFileName = "";
 
+    /// <summary>
+    /// Position de l'hélice dans le repère du navire (lue depuis le YAML).
+    /// </summary>
     public Vector3 propellerPosition_ship { get; private set; } = Vector3.zero;
 
-
-    [Header("Ship Transform Settings")]
+    [Header("Paramètres du Transform du Navire")]
+    /// <summary>
+    /// Échelle appliquée à la position lue depuis le CSV.
+    /// </summary>
     public float positionScale = 1.0f;
+
+    /// <summary>
+    /// Décalage ajouté à la position finale du navire dans Unity.
+    /// </summary>
     public Vector3 positionOffset = Vector3.zero;
+
+    /// <summary>
+    /// Décalage ajouté à la rotation finale du navire.
+    /// </summary>
     public Vector3 rotationOffset = Vector3.zero;
     
+    // Position et rotation initiales dans le repère NED (North-East-Down)
     private Vector3 initialPos_NED;
     private Vector3 initialRot_ship_NED;
 
+    // Position et rotation initiales converties dans le repère Unity
     private Quaternion shipFrameInitialRotationUnity;
     private Vector3 shipFrameInitialPositionUnity;
 
-
-    // ======================================================
-    // 🧩 Structure publique pour les HUD
+    /// <summary>
+    /// Structure contenant toutes les données d'un pas de temps de simulation.
+    /// </summary>
     public class FrameData
     {
         public float time;
@@ -56,8 +89,19 @@ public class ShipCSVPlayer : MonoBehaviour
         public float fx_prop, fy_prop, fz_prop;
     }
 
+    /// <summary>
+    /// La trame de données actuelle interpolée.
+    /// </summary>
     public FrameData CurrentFrame { get; private set; }
+
+    /// <summary>
+    /// La trame de données précédente (utile pour les comparaisons).
+    /// </summary>
     public FrameData PreviousFrame { get; private set; }
+
+    /// <summary>
+    /// Indique si une trame valide est actuellement chargée.
+    /// </summary>
     public bool HasValidFrame => CurrentFrame != null;
 
     private List<FrameData> data = new();
@@ -65,9 +109,12 @@ public class ShipCSVPlayer : MonoBehaviour
     private float elapsedTime = 0f;
     private bool isPlaying = true;
 
+    /// <summary>
+    /// Chemin complet du fichier CSV chargé.
+    /// </summary>
     public string LoadedCSVPath { get; private set; }
 
-    // ======================================================
+    
     void Start()
     {
 #if UNITY_EDITOR
@@ -91,22 +138,24 @@ public class ShipCSVPlayer : MonoBehaviour
         }
 #endif
 #if UNITY_EDITOR
-    if (string.IsNullOrWhiteSpace(yamlFileName))
-    {
-        yamlFileName = EditorUtility.OpenFilePanel("Sélectionner un fichier YAML", Application.streamingAssetsPath, "yml");
-
-        if (string.IsNullOrEmpty(yamlFileName))
+        if (string.IsNullOrWhiteSpace(yamlFileName))
         {
-            Debug.LogError("❌ Aucun fichier YAML sélectionné.");
-            return;
+            yamlFileName = EditorUtility.OpenFilePanel("Sélectionner un fichier YAML", Application.streamingAssetsPath, "yml");
+
+            if (string.IsNullOrEmpty(yamlFileName))
+            {
+                Debug.LogError("❌ Aucun fichier YAML sélectionné.");
+                return;
+            }
         }
-    }
 #endif
         LoadYAML();
         LoadCSV();
     }
 
-    // ======================================================
+    /// <summary>
+    /// Charge et parse le fichier de configuration YAML.
+    /// </summary>
     void LoadYAML()
     {
         if (string.IsNullOrWhiteSpace(yamlFileName)) return;
@@ -124,10 +173,11 @@ public class ShipCSVPlayer : MonoBehaviour
 
         string txt = File.ReadAllText(full);
 
+        // Extraction de la position de l'hélice et conversion vers le repère Unity (Y <-> Z inversé)
         propellerPosition_ship = new Vector3(
-        ExtractYamlFloat(txt, "position of propeller frame", "x"),
-        -ExtractYamlFloat(txt, "position of propeller frame", "z"),   // ← devient Y Unity
-        ExtractYamlFloat(txt, "position of propeller frame", "y")    // ← devient Z Unity
+            ExtractYamlFloat(txt, "position of propeller frame", "x"),
+            -ExtractYamlFloat(txt, "position of propeller frame", "z"), 
+            ExtractYamlFloat(txt, "position of propeller frame", "y")
         );
 
         initialPos_NED = new Vector3(
@@ -142,6 +192,7 @@ public class ShipCSVPlayer : MonoBehaviour
             ExtractYamlFloat(txt, "initial position of body frame", "psi")
         );
 
+        // Conversion de la position initiale NED vers Unity
         shipFrameInitialPositionUnity = new Vector3(
             initialPos_NED.y,
             -initialPos_NED.z,
@@ -150,10 +201,12 @@ public class ShipCSVPlayer : MonoBehaviour
 
         shipFrameInitialRotationUnity = ConvertNEDToUnityRot(initialRot_ship_NED);
 
-
-        Debug.Log($"📌 Propeller position (ship frame) = {propellerPosition_ship}");
+        Debug.Log($"📌 Position de l'hélice (repère navire) = {propellerPosition_ship}");
     }
 
+    /// <summary>
+    /// Extrait une valeur flottante d'une section spécifique du YAML.
+    /// </summary>
     float ExtractYamlFloat(string yaml, string section, string key)
     {
         string pattern =
@@ -166,6 +219,11 @@ public class ShipCSVPlayer : MonoBehaviour
         return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Convertit une rotation du repère NED (North-East-Down) vers le repère Unity.
+    /// </summary>
+    /// <param name="rNED">Rotation en radians (phi, theta, psi).</param>
+    /// <returns>Quaternion Unity correspondant.</returns>
     Quaternion ConvertNEDToUnityRot(Vector3 rNED)
     {
         float phi = rNED.x * Mathf.Rad2Deg;    // roll
@@ -174,7 +232,7 @@ public class ShipCSVPlayer : MonoBehaviour
 
         Quaternion q = Quaternion.Euler(phi, psi, theta);
 
-        // Conversion NED->Unity (Xned,Yned,Zned->Z,X,-Y)
+        // Conversion NED->Unity (Xned,Yned,Zned -> Z,X,-Y)
         return new Quaternion(
             q.y,
             -q.z,
@@ -183,7 +241,6 @@ public class ShipCSVPlayer : MonoBehaviour
         );
     }
 
-
     void Update()
     {
         if (!isPlaying || data.Count < 2) 
@@ -191,6 +248,7 @@ public class ShipCSVPlayer : MonoBehaviour
 
         elapsedTime += Time.deltaTime * playbackSpeed;
 
+        // Avance dans les données jusqu'à trouver l'intervalle de temps correct
         while (currentIndex < data.Count - 2 && elapsedTime > data[currentIndex + 1].time)
             currentIndex++;
 
@@ -210,10 +268,6 @@ public class ShipCSVPlayer : MonoBehaviour
             }
         }
         
-
-
-
-
         var a = data[currentIndex];
         var b = data[currentIndex + 1];
         float t = Mathf.InverseLerp(a.time, b.time, elapsedTime);
@@ -221,10 +275,10 @@ public class ShipCSVPlayer : MonoBehaviour
         PreviousFrame = CurrentFrame;
         CurrentFrame = LerpFrame(a, b, t);
 
-
         Vector3 csvPos = CurrentFrame.position;
         Quaternion csvRot = Quaternion.Euler(CurrentFrame.rotation);
 
+        // Application de la transformation au GameObject
         Vector3 posUnity = shipFrameInitialPositionUnity + shipFrameInitialRotationUnity * csvPos;
         Quaternion rotUnity = shipFrameInitialRotationUnity * csvRot;
 
@@ -232,7 +286,9 @@ public class ShipCSVPlayer : MonoBehaviour
         transform.rotation = rotUnity;
     }
 
-    // ======================================================
+    /// <summary>
+    /// Interpole linéairement entre deux trames de données.
+    /// </summary>
     FrameData LerpFrame(FrameData a, FrameData b, float t)
     {
         FrameData f = new FrameData
@@ -240,7 +296,7 @@ public class ShipCSVPlayer : MonoBehaviour
             time = Mathf.Lerp(a.time, b.time, t),
             position = Vector3.Lerp(a.position, b.position, t),
 
-            // 🔥 Correction YAW → conversion en degrés si nécessaire
+            // Correction YAW -> conversion en degrés si nécessaire
             rotation = new Vector3(
                 Mathf.Lerp(a.rotation.x, b.rotation.x, t),
                 Mathf.Lerp(a.rotation.y, b.rotation.y, t),
@@ -291,7 +347,9 @@ public class ShipCSVPlayer : MonoBehaviour
         return f;
     }
 
-    // ======================================================
+    /// <summary>
+    /// Charge et parse le fichier CSV.
+    /// </summary>
     void LoadCSV()
     {
         string fullPath = csvFileName;
@@ -348,18 +406,15 @@ public class ShipCSVPlayer : MonoBehaviour
                 float theta = TryParse(h, p, "theta(ship)");
                 float psiRaw = TryParse(h, p, "psi(ship)");
 
-                // 🔥 psi est en radians cumulatifs → on normalise en degrés
+                // psi est en radians cumulatifs -> on normalise en degrés
                 float psi = psiRaw * Mathf.Rad2Deg;
                 
-
                 f.rotation = new Vector3(phi, psi, theta);
 
-                // vitesses
                 f.u = TryParse(h, p, "u(ship)");
                 f.v = TryParse(h, p, "v(ship)");
                 f.w = TryParse(h, p, "w(ship)");
 
-                // forces
                 f.totalFx = TryParse(h, p, "fx(sum of forces ship ship)");
                 f.totalFy = TryParse(h, p, "fy(sum of forces ship ship)");
                 f.totalFz = TryParse(h, p, "fz(sum of forces ship ship)");
@@ -368,7 +423,6 @@ public class ShipCSVPlayer : MonoBehaviour
                 f.totalMy = TryParse(h, p, "my(sum of forces ship ship)");
                 f.totalMz = TryParse(h, p, "mz(sum of forces ship ship)");
 
-                // autres forces
                 f.fx_grav = TryParse(h, p, "fx(gravity ship ship)");
                 f.fy_grav = TryParse(h, p, "fy(gravity ship ship)");
                 f.fz_grav = TryParse(h, p, "fz(gravity ship ship)");
@@ -410,7 +464,9 @@ public class ShipCSVPlayer : MonoBehaviour
         Debug.Log($"ℹ️ Colonnes reconnues : {h.Count}");
     }
 
-    // ======================================================
+    /// <summary>
+    /// Essaie de parser une valeur float à partir d'une colonne CSV donnée.
+    /// </summary>
     float TryParse(Dictionary<string, int> h, string[] p, string key)
     {
         key = key.ToLower();
@@ -428,10 +484,19 @@ public class ShipCSVPlayer : MonoBehaviour
         return 0f;
     }
 
-    // ======================================================
+    /// <summary>
+    /// Retourne le temps écoulé dans la simulation.
+    /// </summary>
     public float GetElapsedTime() => elapsedTime;
+
+    /// <summary>
+    /// Retourne le temps de la dernière frame de données disponible.
+    /// </summary>
     public float GetLastFrameTime() => data.Count > 0 ? data[^1].time : 0f;
 
+    /// <summary>
+    /// Définit le temps actuel de la simulation (pour le seeking).
+    /// </summary>
     public void SetElapsedTime(float value)
     {
         if (data.Count < 2) return;
