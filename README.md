@@ -2,7 +2,7 @@
 
 **NavireVisualization** est un outil de visualisation 3D haute fidélité construit sous Unity pour l'analyse de l'hydrodynamique des navires. Il comble le fossé entre la simulation numérique et la compréhension visuelle en rejouant les données de simulation dans un environnement océanique réaliste.
 
-![Bannière du projet](https://via.placeholder.com/800x200?text=NavireVisualization+Banner)
+
 
 ## 🚀 Fonctionnalités Clés
 
