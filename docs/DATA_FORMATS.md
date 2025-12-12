@@ -26,15 +26,18 @@ Le système recherche des en-têtes de colonnes spécifiques (insensible à la c
 | `v(ship)` | Vitesse d'Embardée (Sway) | m/s |
 | `w(ship)` | Vitesse de Pilonnement (Heave) | m/s |
 
-### Colonnes de Force (Optionnel mais recommandé)
-Pour la visualisation, les colonnes de force suivantes sont utilisées. Remplacez `...` par la composante de force spécifique (par exemple, `gravity`, `hydrostatic`, `diffraction`).
+### Colonnes de Force (Optionnel)
+Le système est préconfiguré pour lire et stocker les composantes de forces suivantes si elles sont présentes dans le CSV (insensible à la casse) :
 
-*   `fx(...)`
-*   `fy(...)`
-*   `fz(...)`
-*   `mx(...)`
-*   `my(...)`
-*   `mz(...)`
+*   `fx(gravity ship ship)`, `fy(...)`, `fz(...)`
+*   `fx(non-linear hydrostatic (fast) ship ship)`, ...
+*   `fx(non-linear froude-krylov ship ship)`, ...
+*   `fx(diffraction ship ship)`, ...
+*   `fx(radiation damping ship ship)`, ...
+*   `fx(holtrop & mennen ship ship)`, ...
+*   `fx(propellerandrudder ship propellerandrudder)`, ...
+
+Ces données sont stockées dans la structure `FrameData` mais ne sont pas nécessairement toutes visualisées par défaut.
 
 **Exemple :** `fx(sum of forces ship ship)` représente la force totale dans la direction X.
 

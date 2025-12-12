@@ -17,6 +17,7 @@ C'est le contrôleur principal. Il lit les données et déplace le navire.
 *   **Réglages du Transform du Navire** :
     *   `Position Scale` : Facteur d'échelle pour les coordonnées de position (généralement 1.0).
     *   `Position Offset` : Décalage ajouté à la position finale Unity.
+    *   `Rotation Offset` : Décalage de rotation (Euler X, Y, Z) ajouté à l'orientation du navire.
 
 ## 2. ForceVisualizer
 **Script :** `Assets/Scripts/ForceVisualizer.cs`

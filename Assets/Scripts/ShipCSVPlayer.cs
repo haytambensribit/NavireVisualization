@@ -6,22 +6,54 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
+/// <summary>
+/// Composant principal gérant la lecture des données de simulation (CSV) et l'animation du navire.
+/// Il charge également la configuration statique du navire depuis un fichier YAML.
+/// </summary>
 public class ShipCSVPlayer : MonoBehaviour
 {
     [Header("CSV Settings")]
+    /// <summary>
+    /// Nom du fichier CSV par défaut (utilisé si aucun fichier n'est sélectionné via le menu).
+    /// </summary>
     public string csvFileName = "";
+
+    /// <summary>
+    /// Vitesse de lecture de la simulation (1.0 = temps réel).
+    /// </summary>
     public float playbackSpeed = 1.0f;
+
+    /// <summary>
+    /// Si vrai, la simulation redémarre automatiquement à la fin.
+    /// </summary>
     public bool loop = true;
 
     [Header("YAML Settings")]
+    /// <summary>
+    /// Nom du fichier YAML de configuration du navire.
+    /// </summary>
     public string yamlFileName = "";
 
+    /// <summary>
+    /// Position de l'hélice lue depuis le YAML (dans le repère du navire).
+    /// </summary>
     public Vector3 propellerPosition_ship { get; private set; } = Vector3.zero;
 
 
     [Header("Ship Transform Settings")]
+    /// <summary>
+    /// Facteur d'échelle appliqué aux positions lues du CSV.
+    /// </summary>
     public float positionScale = 1.0f;
+
+    /// <summary>
+    /// Décalage de position appliqué au navire dans la scène Unity.
+    /// </summary>
     public Vector3 positionOffset = Vector3.zero;
+
+    /// <summary>
+    /// Décalage de rotation appliqué au navire (en degrés, Euler).
+    /// </summary>
     public Vector3 rotationOffset = Vector3.zero;
     
     private Vector3 initialPos_NED;
@@ -32,7 +64,10 @@ public class ShipCSVPlayer : MonoBehaviour
 
 
     // ======================================================
-    // 🧩 Structure publique pour les HUD
+    /// <summary>
+    /// Structure de données représentant une ligne du fichier CSV (un pas de temps).
+    /// Contient toutes les données cinématiques et dynamiques du navire.
+    /// </summary>
     public class FrameData
     {
         public float time;
@@ -46,18 +81,36 @@ public class ShipCSVPlayer : MonoBehaviour
         public float totalFx, totalFy, totalFz;
         public float totalMx, totalMy, totalMz;
 
-        // Forces secondaires
+        // Forces secondaires (Composantes détaillées)
+        /// <summary>Force de gravité</summary>
         public float fx_grav, fy_grav, fz_grav;
+        /// <summary>Force hydrostatique non-linéaire</summary>
         public float fx_hydro, fy_hydro, fz_hydro;
+        /// <summary>Force de Froude-Krylov non-linéaire</summary>
         public float fx_froude, fy_froude, fz_froude;
+        /// <summary>Force de diffraction</summary>
         public float fx_diff, fy_diff, fz_diff;
+        /// <summary>Amortissement de radiation</summary>
         public float fx_rad, fy_rad, fz_rad;
+        /// <summary>Force de Holtrop & Mennen (résistance)</summary>
         public float fx_hm, fy_hm, fz_hm;
+        /// <summary>Force de l'hélice et du gouvernail</summary>
         public float fx_prop, fy_prop, fz_prop;
     }
 
+    /// <summary>
+    /// Données interpolées pour la frame courante affichée à l'écran.
+    /// </summary>
     public FrameData CurrentFrame { get; private set; }
+
+    /// <summary>
+    /// Données de la frame précédente (pour calculs différentiels si besoin).
+    /// </summary>
     public FrameData PreviousFrame { get; private set; }
+
+    /// <summary>
+    /// Indique si une frame valide est chargée.
+    /// </summary>
     public bool HasValidFrame => CurrentFrame != null;
 
     private List<FrameData> data = new();
@@ -66,11 +119,15 @@ public class ShipCSVPlayer : MonoBehaviour
     private bool isPlaying = true;
     public bool IsPlaying => isPlaying;
 
+    /// <summary>
+    /// Chemin absolu du fichier CSV chargé.
+    /// </summary>
     public string LoadedCSVPath { get; private set; }
 
     // ======================================================
     void Start()
     {
+        // Vérification des chemins transmis par le menu principal (SimulationPaths)
         if (string.IsNullOrEmpty(SimulationPaths.SelectedCSV) ||
             string.IsNullOrEmpty(SimulationPaths.SelectedYAML))
         {
@@ -90,6 +147,9 @@ public class ShipCSVPlayer : MonoBehaviour
 
 
     // ======================================================
+    /// <summary>
+    /// Charge et parse le fichier de configuration YAML.
+    /// </summary>
     void LoadYAML()
     {
         if (string.IsNullOrWhiteSpace(yamlFileName)) return;
@@ -107,10 +167,11 @@ public class ShipCSVPlayer : MonoBehaviour
 
         string txt = File.ReadAllText(full);
 
+        // Extraction de la position de l'hélice et conversion de repère (Y Unity = -Z NED, Z Unity = Y NED)
         propellerPosition_ship = new Vector3(
-        ExtractYamlFloat(txt, "position of propeller frame", "x"),
-        -ExtractYamlFloat(txt, "position of propeller frame", "z"),   // ← devient Y Unity
-        ExtractYamlFloat(txt, "position of propeller frame", "y")    // ← devient Z Unity
+            ExtractYamlFloat(txt, "position of propeller frame", "x"),
+            -ExtractYamlFloat(txt, "position of propeller frame", "z"),   // ← devient Y Unity
+            ExtractYamlFloat(txt, "position of propeller frame", "y")    // ← devient Z Unity
         );
 
         initialPos_NED = new Vector3(
@@ -137,6 +198,9 @@ public class ShipCSVPlayer : MonoBehaviour
         Debug.Log($"📌 Propeller position (ship frame) = {propellerPosition_ship}");
     }
 
+    /// <summary>
+    /// Extrait une valeur flottante d'une section spécifique du YAML via Regex.
+    /// </summary>
     float ExtractYamlFloat(string yaml, string section, string key)
     {
         string pattern =
@@ -149,6 +213,9 @@ public class ShipCSVPlayer : MonoBehaviour
         return float.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Convertit une rotation Euler du repère NED vers le repère Unity.
+    /// </summary>
     Quaternion ConvertNEDToUnityRot(Vector3 rNED)
     {
         float phi = rNED.x * Mathf.Rad2Deg;    // roll
@@ -168,12 +235,18 @@ public class ShipCSVPlayer : MonoBehaviour
 
     // ========== PLAY / PAUSE / RESTART API ==========
 
+    /// <summary>
+    /// Met en pause la simulation et fige le temps de la scène.
+    /// </summary>
     public void Pause()
     {
         isPlaying = false;
         Time.timeScale = 0f;   // ← fige toute la scène
     }
 
+    /// <summary>
+    /// Reprend la lecture de la simulation.
+    /// </summary>
     public void Play()
     {
         if (data.Count < 2) return;
@@ -196,6 +269,9 @@ public class ShipCSVPlayer : MonoBehaviour
             Play();
     }
 
+    /// <summary>
+    /// Redémarre la simulation depuis le début (t=0).
+    /// </summary>
     public void Restart()
     {
         elapsedTime = 0f;
@@ -221,12 +297,9 @@ public class ShipCSVPlayer : MonoBehaviour
     }
 
 
-
-
-
     void Update()
     {
-       // ✅ Le clavier est géré ICI (toujours au même endroit)
+        // ✅ Le clavier est géré ICI (toujours au même endroit)
         if (Input.GetKeyDown(KeyCode.Space))
         {
             TogglePlayPause();
@@ -238,6 +311,7 @@ public class ShipCSVPlayer : MonoBehaviour
 
         elapsedTime += Time.deltaTime * playbackSpeed;
 
+        // Avance dans les données pour trouver l'intervalle correspondant au temps écoulé
         while (currentIndex < data.Count - 2 && elapsedTime > data[currentIndex + 1].time)
             currentIndex++;
 
@@ -257,10 +331,6 @@ public class ShipCSVPlayer : MonoBehaviour
             }
         }
         
-
-
-
-
         var a = data[currentIndex];
         var b = data[currentIndex + 1];
         float t = Mathf.InverseLerp(a.time, b.time, elapsedTime);
@@ -280,6 +350,9 @@ public class ShipCSVPlayer : MonoBehaviour
     }
 
     // ======================================================
+    /// <summary>
+    /// Interpole linéairement entre deux trames de données.
+    /// </summary>
     FrameData LerpFrame(FrameData a, FrameData b, float t)
     {
         FrameData f = new FrameData
@@ -339,6 +412,9 @@ public class ShipCSVPlayer : MonoBehaviour
     }
 
     // ======================================================
+    /// <summary>
+    /// Lit et parse le fichier CSV de données.
+    /// </summary>
     void LoadCSV()
     {
         string fullPath = csvFileName;
@@ -458,6 +534,10 @@ public class ShipCSVPlayer : MonoBehaviour
     }
 
     // ======================================================
+    /// <summary>
+    /// Tente de parser une valeur float depuis une colonne CSV donnée.
+    /// Retourne 0 si la colonne n'existe pas ou si la valeur est invalide.
+    /// </summary>
     float TryParse(Dictionary<string, int> h, string[] p, string key)
     {
         key = key.ToLower();
@@ -479,6 +559,9 @@ public class ShipCSVPlayer : MonoBehaviour
     public float GetElapsedTime() => elapsedTime;
     public float GetLastFrameTime() => data.Count > 0 ? data[^1].time : 0f;
 
+    /// <summary>
+    /// Définit le temps écoulé actuel (Seek).
+    /// </summary>
     public void SetElapsedTime(float value)
     {
         if (data.Count < 2) return;
