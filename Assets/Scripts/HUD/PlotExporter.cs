@@ -4,10 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
 using System.IO.Compression;
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
+using SFB;
 
 public class PlotExporter : MonoBehaviour
 {
@@ -184,20 +181,39 @@ public class PlotExporter : MonoBehaviour
 
         ZipFile.CreateFromDirectory("GraphExport", tempZip);
 
-#if UNITY_EDITOR
-        string savePath = EditorUtility.SaveFilePanel(
+    #if UNITY_EDITOR
+        // ------- MODE ÉDITEUR -------
+        string savePath = UnityEditor.EditorUtility.SaveFilePanel(
             "Enregistrer ZIP",
             "",
             "ForcesExport.zip",
             "zip"
         );
 
-        if (savePath == "") return;
+        if (string.IsNullOrEmpty(savePath))
+            return;
 
         File.Copy(tempZip, savePath, true);
-#else
-        Debug.LogWarning("📦 Pour standalone, utiliser StandaloneFileBrowser.");
-#endif
+
+    #else
+        // ------- MODE BUILD -------
+        var extensions = new[] {
+            new ExtensionFilter("Archive ZIP", "zip")
+        };
+
+        string savePath = StandaloneFileBrowser.SaveFilePanel(
+            "Enregistrer le fichier",
+            "",
+            "ForcesExport",
+            extensions
+        );
+
+        Debug.Log("SAVE PATH = " + savePath);
+
+        if (!string.IsNullOrEmpty(savePath))
+            File.Copy(tempZip, savePath, true);
+
+    #endif
 
         Debug.Log("📦 ZIP exporté avec succès !");
     }

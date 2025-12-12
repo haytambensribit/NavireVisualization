@@ -169,6 +169,7 @@ public class ForceVisualizer : MonoBehaviour
     {
         HandleVisibilityToggle();
         if (!visible || data.Count == 0 || shipTransform == null || player == null) return;
+        if (player.CurrentFrame == null) return;
 
         int index = playerIndex();
         Vector4 f = data[index];
